@@ -59,6 +59,10 @@ func (api *API) Stat(context.Context, *plugin.StatRequest) (*plugin.StatResponse
 // Execute the command describes within the request. Returns codes.NotFound if no command matching the given name
 // is registered with the plugin.
 func (api *API) Execute(ctx context.Context, request *plugin.ExecuteRequest) (*plugin.ExecuteResponse, error) {
+	if request.GetName() == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing command name")
+	}
+	
 	handler, ok := api.handlers[request.GetName()]
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "unknown command %q", request.GetName())

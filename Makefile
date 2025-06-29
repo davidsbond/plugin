@@ -3,3 +3,6 @@ test: test-plugin
 
 test-plugin:
 	go build ./testdata/test_plugin
+
+generate:
+	go generate ./...

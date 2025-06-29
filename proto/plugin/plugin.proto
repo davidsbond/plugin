@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+// Package plugin provides the gRPC server/client implementations for a plugin.
+package plugin;
+
+import "google/protobuf/any.proto";
+
+option go_package = "github.com/davidsbond/plugin/internal/generated/proto/plugin";
+
+// The PluginService is a gRPC service that handles communication between plugins and their host applications.
+service PluginService {
+  // Stat returns metadata about the plugin.
+  rpc Stat(StatRequest) returns (StatResponse);
+  // Execute a plugin command. Should return a NOT_FOUND code if the specified command does not exist.
+  rpc Execute(ExecuteRequest) returns (ExecuteResponse);
+}
+
+// The StatRequest type contains fields used by the Stat RPC.
+message StatRequest {}
+
+// The StatResponse type describes plugin metadata returned by the Stat RPC.
+message StatResponse {
+  // The name of the plugin.
+  string name = 1;
+  // The version of the plugin.
+  string version = 2;
+  // The commands the plugin supports.
+  repeated string commands = 3;
+}
+
+// The ExecuteRequest type contains fields used by the Execute RPC.
+message ExecuteRequest {
+  // The name of the command to execute.
+  string name = 1;
+  // The input used by the command.
+  google.protobuf.Any input = 2;
+}
+
+// The ExecuteResponse type contains the results of a successful command execution.
+message ExecuteResponse {
+  // The command output.
+  google.protobuf.Any output = 1;
+}

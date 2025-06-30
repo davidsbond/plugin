@@ -19,10 +19,9 @@ type (
 	}
 )
 
-// NewClient attempts to create a new connection to the plugin using the expected UNIX domain socket for the plugin
-// name.
-func NewClient(name string) (*Client, error) {
-	conn, err := grpc.NewClient("unix:///tmp/plugin_"+name+".sock",
+// NewClient attempts to create a new connection to the plugin using the provided UNIX domain socket.
+func NewClient(socket string) (*Client, error) {
+	conn, err := grpc.NewClient("unix:///tmp/"+socket+".sock",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {

@@ -5,9 +5,9 @@
 // the plugin interface.
 //
 // Plugins are external binaries that serve gRPC requests over a UNIX domain socket on the local machine. Each plugin
-// creates a socket using its name (which must be unique across all plugins used locally). Plugins make use of the
-// protobuf "Any" type in order to allow user-defined inputs and outputs to keep strong typing across application and
-// language boundaries.
+// creates a socket using a unique identifier passed as an argument from the host application to the plugin. Plugins
+// make use of the protobuf "Any" type in order to allow user-defined inputs and outputs to keep strong typing across
+// application and language boundaries.
 package plugin
 
 import (
@@ -23,6 +23,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rs/xid"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -102,6 +103,10 @@ func Run(config Config) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 	defer cancel()
 
+	if len(os.Args) == 0 {
+		return errors.New("plugin expects at least one argument")
+	}
+
 	server := grpc.NewServer()
 
 	info := plugin.Info{
@@ -117,8 +122,8 @@ func Run(config Config) error {
 
 	plugin.NewAPI(info, handlers).Register(server)
 
-	socket := "/tmp/plugin_" + config.Name + ".sock"
-	listener, err := createPluginListener(socket)
+	socket := "/tmp/" + os.Args[0] + ".sock"
+	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		return err
 	}
@@ -131,29 +136,10 @@ func Run(config Config) error {
 	group.Go(func() error {
 		<-ctx.Done()
 		server.GracefulStop()
-		return os.RemoveAll(socket)
+		return listener.Close()
 	})
 
 	return group.Wait()
-}
-
-func createPluginListener(socket string) (net.Listener, error) {
-	var errno syscall.Errno
-
-	listener, err := net.Listen("unix", socket)
-	switch {
-	case errors.As(err, &errno) && errors.Is(errno, syscall.EADDRINUSE):
-		// This socket should only ever be in use by us, so if it's already in use, we'll recreate it.
-		if err = os.Remove(socket); err != nil {
-			return nil, err
-		}
-
-		return net.Listen("unix", socket)
-	case err != nil:
-		return nil, err
-	default:
-		return listener, nil
-	}
 }
 
 func getPluginVersion() string {
@@ -190,8 +176,13 @@ var (
 //
 // If successful, it is up to the caller to eventually call Plugin.Close when they no longer require use of the plugin.
 func Use(ctx context.Context, path string) (*Plugin, error) {
+	socket := xid.New().String()
+
 	cmd := &exec.Cmd{
 		Path: path,
+		Args: []string{
+			socket,
+		},
 	}
 
 	err := cmd.Start()
@@ -204,7 +195,7 @@ func Use(ctx context.Context, path string) (*Plugin, error) {
 	}
 
 	name := filepath.Base(path)
-	p.client, err = plugin.NewClient(name)
+	p.client, err = plugin.NewClient(socket)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial plugin %q: %w", name, err)
 	}

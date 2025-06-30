@@ -19,9 +19,9 @@ via protocol buffers can be invoked.
 ```mermaid
 graph TD
 ;
-    Application["Your application"] <-->|Sends Commands| Socket["/tmp/plugin_example.sock"]
+    Application["Your application"] <-->|Sends Commands| Socket["/tmp/d1hf45ohpe2r63pr1bk.sock"]
     Plugin <-->|Handles Commands| Socket
-    Application -->|Executes| Plugin["/var/plugins/example"]
+    Application -->|Executes| Plugin["/var/plugins/example d1hf45ohpe2r63pr1bk"]
 ```
 
 ### Defining commands
@@ -56,6 +56,7 @@ import (
 	"log"
 
 	"github.com/davidsbond/plugin"
+	command "github.com/yourusername/path/to/protos"
 )
 
 func main() {
@@ -84,9 +85,7 @@ This `main.go` file should be compiled and placed on the same machine as the app
 ### Using plugins
 
 The `plugin.Use` function is used to execute the plugin binary, starting its gRPC server and creating a client that
-communicates with it via a UNIX domain socket. Only a single instance of the plugin should exist throughout your
-application as its lifecycle is managed via the `Use` and `Close` functions. Below is an example of how we start using
-our `add` command:
+communicates with it via a UNIX domain socket. Below is an example of how we start using our `add` command:
 
 ```go
 package main
@@ -96,16 +95,17 @@ import (
 	"fmt"
 
 	"github.com/davidsbond/plugin"
+	command "github.com/yourusername/path/to/protos"
 )
 
 func main() {
 	ctx := context.Background()
-	
+
 	p, err := plugin.Use(ctx, "./example")
 	if err != nil {
 		panic(err)
 	}
-	
+
 	// Remember the call Close() when you're done using the plugin!
 	defer p.Close()
 

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/rs/xid"
+	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -99,19 +100,38 @@ func (ch Command[Input, Output]) Execute(ctx context.Context, input *anypb.Any) 
 
 // Run a plugin using the provided configuration. This function blocks until the process receives an SIGINT, SIGTERM
 // or SIGKILL signal. At which point it will gracefully stop the gRPC server and remove its UNIX domain socket.
-func Run(config Config) error {
+func Run(config Config) {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 	defer cancel()
 
-	if len(os.Args) == 0 {
-		return errors.New("plugin expects at least one argument")
+	cmd := &cobra.Command{
+		Use:     fmt.Sprintf("%s [socket id]", config.Name),
+		Version: getPluginVersion(),
+		Short:   fmt.Sprintf("Starts the %q plugin", config.Name),
+		Long:    fmt.Sprintf("Starts the %q plugin.\n\nOnce started, the plugin will begin listening for commands on a UNIX domain socket under /tmp. This socket name is specified by the first argument passed to the command.", config.Name),
+		CompletionOptions: cobra.CompletionOptions{
+			DisableDefaultCmd: true,
+		},
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return startPlugin(cmd.Context(), config, args[0], cmd.Version)
+		},
 	}
 
+	if err := cmd.ExecuteContext(ctx); err != nil {
+		fmt.Printf("failed to start plugin %q: %v\n", config.Name, err)
+		os.Exit(1)
+	}
+}
+
+func startPlugin(ctx context.Context, config Config, id, version string) error {
 	server := grpc.NewServer()
 
 	info := plugin.Info{
 		Name:    config.Name,
-		Version: getPluginVersion(),
+		Version: version,
 	}
 
 	handlers := plugin.CommandHandlers{}
@@ -122,7 +142,7 @@ func Run(config Config) error {
 
 	plugin.NewAPI(info, handlers).Register(server)
 
-	socket := "/tmp/" + os.Args[0] + ".sock"
+	socket := "/tmp/" + id + ".sock"
 	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		return err
@@ -181,6 +201,7 @@ func Use(ctx context.Context, path string) (*Plugin, error) {
 	cmd := &exec.Cmd{
 		Path: path,
 		Args: []string{
+			path,
 			socket,
 		},
 	}

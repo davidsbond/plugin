@@ -2,27 +2,41 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
 
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/davidsbond/plugin"
 )
 
-func main() {
-	config := plugin.Config{
+type (
+	PingPongPlugin struct{}
+)
+
+func (tp *PingPongPlugin) Run() {
+	plugin.Run(plugin.Config{
 		Name: "test_plugin",
 		Commands: []plugin.CommandHandler{
-			&plugin.Command[*timestamppb.Timestamp, *timestamppb.Timestamp]{
-				Use: "test",
-				Run: func(ctx context.Context, input *timestamppb.Timestamp) (*timestamppb.Timestamp, error) {
-					return input, nil
-				},
+			&plugin.Command[*wrapperspb.StringValue, *wrapperspb.StringValue]{
+				Use: "pingpong",
+				Run: tp.PingPong,
 			},
 		},
+	})
+}
+
+func (tp *PingPongPlugin) PingPong(ctx context.Context, input *wrapperspb.StringValue) (*wrapperspb.StringValue, error) {
+	if input.GetValue() == "ping" {
+		return &wrapperspb.StringValue{Value: "pong"}, nil
 	}
 
-	if err := plugin.Run(config); err != nil {
-		log.Fatal(err)
+	if input.GetValue() == "pong" {
+		return &wrapperspb.StringValue{Value: "ping"}, nil
 	}
+
+	return nil, fmt.Errorf(`invalid input %q, expected "ping" or "pong"`, input.Value)
+}
+
+func main() {
+	(&PingPongPlugin{}).Run()
 }

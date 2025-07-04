@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/davidsbond/plugin"
 )
@@ -27,33 +27,51 @@ func TestUse(t *testing.T) {
 	assert.NotEmpty(t, p.Version())
 
 	if assert.Len(t, p.Commands(), 1) {
-		assert.EqualValues(t, "test", p.Commands()[0])
+		assert.EqualValues(t, "pingpong", p.Commands()[0])
 	}
 
-	t.Run("known command", func(t *testing.T) {
-		input := timestamppb.Now()
-		output := &timestamppb.Timestamp{}
-		err := p.Exec(t.Context(), "test", input, output)
+	t.Run("command pings", func(t *testing.T) {
+		input := wrapperspb.String("ping")
+		output := &wrapperspb.StringValue{}
+		err = p.Exec(t.Context(), "pingpong", input, output)
 
 		require.NoError(t, err)
 		assert.NotNil(t, output)
-		assert.EqualValues(t, input.AsTime(), output.AsTime())
+		assert.EqualValues(t, "pong", output.GetValue())
+	})
+
+	t.Run("command pongs", func(t *testing.T) {
+		input := wrapperspb.String("pong")
+		output := &wrapperspb.StringValue{}
+		err = p.Exec(t.Context(), "pingpong", input, output)
+
+		require.NoError(t, err)
+		assert.NotNil(t, output)
+		assert.EqualValues(t, "ping", output.GetValue())
+	})
+
+	t.Run("command errors if not ping or pong", func(t *testing.T) {
+		input := wrapperspb.String("pung")
+		output := &wrapperspb.StringValue{}
+		err = p.Exec(t.Context(), "pingpong", input, output)
+
+		assert.Error(t, err)
 	})
 
 	t.Run("unknown command", func(t *testing.T) {
-		input := timestamppb.Now()
-		output := &timestamppb.Timestamp{}
-		err := p.Exec(t.Context(), "unknown", input, output)
+		input := wrapperspb.String("pong")
+		output := &wrapperspb.StringValue{}
+		err = p.Exec(t.Context(), "unknown", input, output)
 
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, plugin.ErrUnknownCommand))
 	})
 
-	t.Run("error if invalid input", func(t *testing.T) {
+	t.Run("error if invalid input type", func(t *testing.T) {
 		input := durationpb.New(time.Hour)
-		output := &timestamppb.Timestamp{}
+		output := &wrapperspb.StringValue{}
 
-		err := p.Exec(t.Context(), "test", input, output)
+		err = p.Exec(t.Context(), "test", input, output)
 		require.Error(t, err)
 	})
 }

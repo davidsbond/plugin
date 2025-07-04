@@ -45,6 +45,8 @@ type (
 		// The Commands the plugin is capable of handling. When attempting to use a command that does not exist within
 		// the plugin, an ErrUnknownCommand error is returned to the caller.
 		Commands []CommandHandler
+		// Any ServerOptions to apply to the gRPC server. This could be middleware, keepalives credentials etc.
+		ServerOptions []grpc.ServerOption
 	}
 
 	// The CommandHandler interface describes types that act as individual commands a plugin can handle. Plugin authors should
@@ -127,7 +129,7 @@ func Run(config Config) {
 }
 
 func startPlugin(ctx context.Context, config Config, id, version string) error {
-	server := grpc.NewServer()
+	server := grpc.NewServer(config.ServerOptions...)
 
 	info := plugin.Info{
 		Name:    config.Name,
@@ -231,7 +233,7 @@ func Use(ctx context.Context, path string) (*Plugin, error) {
 	}
 
 	if info.Name != name {
-		return nil, fmt.Errorf("%w: %q", ErrUnexpectedName, info.Name)
+		return nil, fmt.Errorf("%w: expected %q, got %q", ErrUnexpectedName, name, info.Name)
 	}
 
 	p.info = info

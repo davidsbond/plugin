@@ -1,6 +1,6 @@
 module github.com/davidsbond/plugin
 
-go 1.24
+go 1.24.0
 
 tool (
 	github.com/bufbuild/buf/cmd/buf
@@ -12,7 +12,7 @@ require (
 	github.com/rs/xid v1.6.0
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/sync v0.16.0
+	golang.org/x/sync v0.17.0
 	google.golang.org/grpc v1.74.2
 	google.golang.org/protobuf v1.36.6
 )
